@@ -1,0 +1,104 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  TextField,
+  Button,
+  Typography,
+  CircularProgress, // Import this for the spinner
+} from '@mui/material';
+import axios from 'axios';
+import ResponsiveAppBar from '../../components/ResponsiveAppBar/ResponsiveAppBar';
+
+const MySenpAIChatPage = () => {
+  const [userInfo, setUserInfo] = useState({});
+
+  useEffect(() => {
+      const authToken = sessionStorage.getItem('authToken'); // Replace with your actual auth token
+      console.log("Auth Token:" + authToken);
+  
+      if(authToken != null && authToken != undefined && userInfo != {}){
+      axios.get('https://x4up-6i9n-cjxz.n7c.xano.io/api:AJNsglkG/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`  // The token is added to the request header
+        }
+      })
+      .then(response => {
+        console.log('User info:', response.data);
+        setUserInfo(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching user info:', error);
+      });
+  }
+    }, []);  // Empty dependency array means this useEffect runs once when the component mounts
+
+    const [user, setUser] = useState(null);
+
+      useEffect(() => {
+          if (userInfo.id) {
+          axios.get(`https://x4up-6i9n-cjxz.n7c.xano.io/api:AJNsglkG/user/${userInfo.id}`)
+              .then(response => {
+              setUser(response.data);
+              console.log("User Data: " + response.data);
+              })
+              .catch(error => {
+              console.error("Error fetching user bookmarks:", error);
+              });
+          }
+      }, [userInfo]);
+
+  const [userText, setUserText] = useState('');
+  const [chatGptResponse, setChatGptResponse] = useState('');
+  const [loading, setLoading] = useState(false); // New state for loading spinner
+
+  // Function to fetch ChatGPT generated content
+  const fetchGptContent = async () => {
+    setLoading(true); // Start loading
+    try {
+      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+        messages: [{ role: "system", content: `Generate a detailed response to '${userText}'. In the response, make reference to the user's name (${user.name}), but cut out the email part (@aol.com, @gmail.com, @protonmail.com, etc). Try to relate the topic to the user's bookmarks (${user.bookmarks}) and the user's interested skills (${user.interested_skills}), but if the user is lacking one or the other, encourage them to come back with more.` }],
+        model: "gpt-4"
+      }, {
+        headers: {
+          'Authorization': `Bearer [API-KEY]`, // Replace with your actual ChatGPT API key
+          'Content-Type': 'application/json'
+        }
+      });
+
+      setChatGptResponse(response.data.choices[0].message.content.trim());
+    } catch (error) {
+      console.error('Error fetching GPT-4 content:', error);
+    }
+    setLoading(false); // Stop loading
+  };
+
+  return (
+    <Container>
+      <ResponsiveAppBar userInfo={userInfo}/>
+      <Typography variant="h4" gutterBottom>
+        Chat with your SenpAI!!
+      </Typography>
+      <TextField
+        label="Message to SenpAI."
+        variant="outlined"
+        fullWidth
+        margin="normal"
+        multiline
+        rows={4}
+        value={userText}
+        onChange={(e) => setUserText(e.target.value)}
+      />
+      <Button variant="contained" color="secondary" onClick={fetchGptContent} disabled={loading}>
+        Hear Back
+      </Button>
+      {/* Show spinner when loading */}
+      {loading && <CircularProgress />}
+      <Typography variant="h6" gutterBottom>
+        Your SenpAI's Words of Wisdom
+      </Typography>
+      <div dangerouslySetInnerHTML={{ __html: chatGptResponse }} />
+    </Container>
+  );
+};
+
+export default MySenpAIChatPage;
